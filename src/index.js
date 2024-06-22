@@ -4,9 +4,12 @@ const { v4: uuidv4 } = require('uuid');
 const mqEmitter = require('mqemitter');
 const Qlobber = require('qlobber').Qlobber;
 const clientConn = require('./client');
-const persistence = require('aedes-persistence');
+const MQTT5_ERR = require('./const.js');
+
 const { relative } = require('node-core-lib/path');
-require('src/types.js');
+const session = require('./session.js');
+
+require('./typedefs.js');
 
 const fetchMatcher = new Qlobber({
   wildcard_one: '+',
@@ -46,26 +49,46 @@ const server = function (globalProcessId, options) {
   this.clientList = [];
   this.userChange = null;
   this.farmChange = null;
-  this.serverId = uuidv4();
+  this.serverId = uuidv4(null, null, null);
   this.logFunction = options && options.log_func ? options.log_func : null;
   this.clientCallbacks = options && options.clientCallbacks ? options.clientCallbacks : null;
+  this.auth_func = options && options.auth_func ? options.auth_func : null;
+  this.metadata_func = options && options.metadata_func ? options.metadata_func : null;
+  this.module_dir = options && options.module_dir ? options.module_dir : __dirname;
+
+
+  if (this.logFunction) {
+    this.logFunction('Bla bla');
+  } else {
+    console.log('err no log fun');
+  }
+
 
   this.mq = mqEmitter({
     concurrency: 250,
   });
 
-  this.persist = new persistence();
+  this.persist = new session(
+      {
+        log_func: options.log_func,
+        ttl: 3600
+      }
+  );
   this.fetchMatcher = fetchMatcher;
+  this.counter = 1;
 
   const heartbeat = function () {
     broker.publish({
       topic: '$SYS/' + broker.serverId + '/heartbeat',
       payload: Date.now().toString()
     }, noop);
+    // Persistence cleanup
+    const expiredSessions = broker.persist.getExpiredSessions();
+    broker.persist.deleteSessions(expiredSessions);
   };
 
   const _heartbeatInterval = setInterval(heartbeat,
-      options && options.heartbeat_time ? options.heartbeat_time : 30000);
+      options && options.heartbeat_time ? options.heartbeat_time * 1000 : 30 * 1000);
 
   const subscription = function (topic, cb) {
     subscriptions.push({
@@ -202,19 +225,23 @@ const server = function (globalProcessId, options) {
   const autoloadModules = async function (
       pattern = ['modules/*/index.js', 'modules/*.js']
   ) {
-    let matches = await globby(pattern, {
-      cwd: __dirname,
+    let matches = await globby(pattern, /** @type GlobbyOptions */{
+      cwd: broker.module_dir,
       absolute: true,
       onlyFiles: true
     });
-
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Matching', matches);
+    }
     for (let modulePath of matches) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Loaded from ', modulePath);
+      }
       let serverModule = require(modulePath);
-
       if (typeof serverModule === 'function') {
         serverModule(this);
       } else {
-        let moduleName = relative(__dirname, modulePath);
+        let moduleName = relative(broker.module_dir, modulePath);
 
         let error = new Error(
             'Server module should export ' + 'a function that accepts a server.'
@@ -224,6 +251,29 @@ const server = function (globalProcessId, options) {
 
         throw error;
       }
+    }
+  };
+
+  this.publish = function (packet, done) {
+    this.mq.emit(packet, done);
+  };
+
+  this.subscribe = function (topic, func, done) {
+    this.mq.on(topic, func, done);
+  };
+
+  this.unsubscribe = function (topic, func, done) {
+    console.log(this);
+    this.mq.removeListener(topic, func, done);
+  };
+
+  /**
+   * Log function call
+   * @param args
+   */
+  this.log = function (...args) {
+    if (broker.logFunction) {
+      broker.logFunction.apply(this, args);
     }
   };
 
@@ -238,26 +288,5 @@ const server = function (globalProcessId, options) {
 
 };
 
-server.prototype.publish = function (packet, done) {
-  this.mq.emit(packet, done);
-};
-
-server.prototype.subscribe = function (topic, func, done) {
-  this.mq.on(topic, func, done);
-};
-
-server.prototype.unsubscribe = function (topic, func, done) {
-  this.mq.removeListener(topic, func, done);
-};
-
-/**
- * Log function call
- * @param args
- */
-server.prototype.log = function (...args) {
-  if (this.logFunction) {
-    this.logFunction.apply(this, args);
-  }
-}
-
 module.exports = server;
+module.exports.MQTT5_ERR = MQTT5_ERR;
