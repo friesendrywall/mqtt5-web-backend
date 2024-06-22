@@ -3,17 +3,23 @@ const persistence = require('aedes-persistence');
 /**
  * @typedef session_opt_t
  * @type {object}
- * @property {number} ttl Seconds
- * @property {log_if_t | null} log_func
+ * @property {number | undefined } ttl Seconds
+ * @property {log_if_t | undefined} log_func
+ */
+
+/**
+ * @typedef sess_sub_t
+ * @type {object}
+ * @property {string } topic
+ * @property {number} qos
  */
 
 /**
  * @typedef session_data_t
  * @type {object}
  * @property {number} last Last unix time
- * @property {boolean} online
  * @property {number} messageId
- * @property {[]} subs
+ * @property {sess_sub_t[]} subs
  */
 
 /**
@@ -26,14 +32,6 @@ const session = function (options) {
     const activeSession = [];
     const persist = persistence();
 
-    function getMapRef (map, key, ifEmpty, createOnEmpty = false) {
-        const value = map.get(key)
-        if (value === undefined && createOnEmpty) {
-            map.set(key, ifEmpty)
-        }
-        return value || ifEmpty
-    }
-
     const log = function (...args) {
         if (options.log_func) {
             options.log_func.apply(this, args);
@@ -41,7 +39,7 @@ const session = function (options) {
     }
 
     /**
-     *
+     * Get expired sessions for TTL management
      * @returns {string[]}
      */
     this.getExpiredSessions = function () {
@@ -55,7 +53,7 @@ const session = function (options) {
     }
 
     /**
-     * Delete session, including any items in persistence
+     * Delete sessions, including any items in persistence
      * @param {string[]} clientList
      */
     this.deleteSessions = function (clientList) {
@@ -68,7 +66,7 @@ const session = function (options) {
     }
 
     /**
-     *
+     * Find active session, returning existing subscriptions
      * @param {string} clientId
      * @returns {Promise<session_data_t>}
      */
@@ -89,7 +87,7 @@ const session = function (options) {
     }
 
     /**
-     *
+     * Start session
      * @param {string} clientId
      */
     this.startSession = function (clientId) {
@@ -99,33 +97,50 @@ const session = function (options) {
         };
     }
 
+    /**
+     * Reset session timer
+     * @param {string} clientId
+     */
     this.refreshSession = function (clientId) {
         clients[clientId].last = Date.now();
     }
 
+    /**
+     * Store session variables
+     * @param {string} clientId
+     * @param {number} messageId
+     */
     this.saveSession = function (clientId, messageId) {
         clients[clientId].last = Date.now();
         clients[clientId].messageId = messageId;
     }
 
+    /**
+     * Set client online to prevent multiple connections
+     * @param {string} clientId
+     * @param {boolean} value
+     * @returns {boolean}
+     */
     this.setOnline = function (clientId, value) {
-        // console.log('setOnline', activeSession);
         if (value) {
             if (activeSession[clientId]) {
-                console.log('setOnline ret == false', activeSession);
                 return false; // Already online
             }
             activeSession[clientId] = true;
-            console.log('setOnline ret == true', activeSession);
             return true;
         } else {
+            const ret = !!activeSession[clientId];
             delete activeSession[clientId];
-            console.log('setOffline ret == true', activeSession, clientId);
-            return true;
+            return ret;
         }
     }
 
-    // Bridge functions
+    /* Persistence Bridge functions */
+    /**
+     * Get all pending messages for client
+     * @param {string} clientId
+     * @returns {Promise<AedesPacket>}
+     */
     this.getOfflineMessages = async function (clientId) {
         return new Promise(function (resolve, reject) {
             const packets = [];
@@ -139,29 +154,37 @@ const session = function (options) {
         });
     }
 
+    /**
+     * Queue individual message to client
+     * @param {string} clientId
+     * @param {AedesPacket} packet
+     */
     this.queueClientMessage = function (clientId, packet) {
-        console.log('queueClientMessage', clientId, packet);
         persist.outgoingEnqueueCombi(
             [{ clientId: clientId }],
             packet,
             (err) => {
                 if (err) {
-                    log('debug', `Error at outgoingEnqueueCombi ${packet.topic} ${err}`);
+                    log('debug', `Err at queueClientMessage ${packet.topic} ${err}`);
                 }
             });
     }
 
+    /**
+     * Queue message to all subscribed clients
+     * @param {AedesPacket} packet
+     */
     this.queueMessage = function (packet) {
-        console.log('queueMessage', packet);
         persist.subscriptionsByTopic(packet.topic,
             function (err, subscriptions) {
                 if (err) {
-                    log('debug', `Error at topic ${packet.topic} ${err}`);
+                    log('debug', `Err at queueMessage-1 topic ${packet.topic} ${err}`);
                 } else {
                     persist.outgoingEnqueueCombi(subscriptions, packet,
                         (err) => {
                             if (err) {
-                                log('debug', `Error at enqueue topic ${packet.topic} ${err}`);
+                                log('debug',
+                                    `Err at queueMessage-2 topic ${packet.topic} ${err}`);
                             }
                         });
                 }
@@ -169,7 +192,7 @@ const session = function (options) {
     }
 
     /**
-     *
+     * Update message id before sending
      * @param {string} clientId
      * @param {AedesPacket} packet
      */
@@ -183,6 +206,11 @@ const session = function (options) {
             });
     }
 
+    /**
+     * Delete message from persistence
+     * @param {string} clientId
+     * @param {AedesPacket} packet
+     */
     this.deleteMessage = function (clientId, packet) {
         console.log('deleteMessage', clientId, packet);
         persist.outgoingClearMessageId(
@@ -190,20 +218,32 @@ const session = function (options) {
             });
     }
 
+    /**
+     * Add subscription to persistence
+     * @param {string} clientId
+     * @param {string} topic
+     * @param {number} qos
+     */
     this.addSubscription = function (clientId, topic, qos = 1) {
         console.log('addSubscription', clientId, topic);
         persist.addSubscriptions(/** @type {Client} */{ id: clientId },
-            [{
+            /**@type []*/[{
                 topic,
                 qos
             }], () => {
             });
     }
 
+    /**
+     *
+     * @param {string} clientId
+     * @param {string} topic
+     */
     this.removeSubscription = function (clientId, topic) {
         console.log('removeSubscription', clientId, topic);
         persist.removeSubscriptions(
-            /** @type {Client} */{ id: clientId }, [topic], () => {
+            /** @type {Client} */{ id: clientId },
+            /**@type []*/[topic], () => {
             });
     }
 

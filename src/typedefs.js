@@ -31,6 +31,7 @@
  * @typedef fetcher_callback_t
  * @type {object}
  * @property {function} load
+ * @returns { Promise<{packets: Object[]}>}
  */
 
 /**

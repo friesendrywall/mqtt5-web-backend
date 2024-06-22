@@ -18,11 +18,11 @@ const connection = function (stream, broker) {
   /**
    *
    * @type {Connection|*}
-   * @function client.connack
-   * @function client.puback
-   * @function client.unsuback
-   * @function client.pingresp
-   * @function client.suback
+   * @property {function} connack
+   * @property {function} puback
+   * @property {function} unsuback
+   * @property {function} pingresp
+   * @property {function} suback
    */
   const client = mqttConn(stream, {
     protocolVersion: 5,
@@ -48,7 +48,6 @@ const connection = function (stream, broker) {
 
   let currentMessageId = 0;
   let clientSubscriptions = [];
-  let messageTimeTracker = [];
   let streamTimer = null;
 
   const getNewMessageId = function () {
@@ -111,10 +110,20 @@ const connection = function (stream, broker) {
 
   const processOutboundQueue = async function () {
     const packets = await broker.persist.getOfflineMessages(metaData.clientId);
-    // Sort, primarily for message time tracking order
-    packets.sort(function (a, b) {
-      return a.time - b.time;
-    });
+
+    // Following assumes persistence packets are old -> new
+    // TODO Review
+    const topicExists = [];
+    for (let i = packets.length - 1; i >= 0; i--) {
+      if (topicExists[packets[i].topic]) {
+        // Delete duplicated packet
+        packets.splice(i, 1);
+        broker.persist.deleteMessage(metaData.clientId, packets[i]);
+      } else {
+        // Save newest packet
+        topicExists[packets[i].topic] = true;
+      }
+    }
 
     for (let i = 0; i < packets.length; i++) {
       await clientPublishPacket(packets[i], noop);
@@ -186,7 +195,6 @@ const connection = function (stream, broker) {
       closeClient().then();
     });
     // Re-send acknowledge
-    // TODO Make sure this doesn't need db
     if (
         broker.clientList[packet.clientId] &&
         broker.clientList[packet.clientId] === metaData.uuid
@@ -337,7 +345,6 @@ const connection = function (stream, broker) {
             metaData.authMeta,
             packet.payload
         );
-        // Todo review return value protocol
         if (pubs === false) {
           client.publish(
               {
@@ -450,13 +457,10 @@ const connection = function (stream, broker) {
         messageId: 41,
         reasonCode: 0
     } */
-    // TODO What if was qos 0 pkt
     broker.persist.deleteMessage(metaData.clientId, packet);
   });
 
   client.on('unsubscribe', async function (packet) {
-    // TODO complete this section
-    // console.log(metaData.clientId, '@unsubscribe', packet);
     if (metaData.authMeta === false) {
       const result = await waitAuth();
       if (result === false) {
@@ -551,9 +555,7 @@ const connection = function (stream, broker) {
         const fetchers = broker.retrieveFetchers(sub.topic);
         for (let f = 0; f < fetchers.length; f++) {
           const fetcher = fetchers[f];
-          // console.log('FOUND matching fetcher', fetcher.matcher);
           try {
-            /** @type {Object []} pkts*/
             const result = await fetcher.cb.load(sub.params, metaData.authMeta);
             const pkts = result.packets;
             for (let p = 0; p < pkts.length; p++) {
