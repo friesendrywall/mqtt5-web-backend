@@ -197,7 +197,7 @@ const session = function (options) {
      * @param {AedesPacket} packet
      */
     this.updateMessageId = function (clientId, packet) {
-        console.log('updateMessageId', packet);
+        // console.log('updateMessageId', clientId, packet);
         persist.outgoingUpdate(
             /** @type {Client} */{ id: clientId }, packet, function (err) {
                 if (err) {
@@ -212,7 +212,7 @@ const session = function (options) {
      * @param {AedesPacket} packet
      */
     this.deleteMessage = function (clientId, packet) {
-        console.log('deleteMessage', clientId, packet);
+        // console.log('deleteMessage', clientId, packet);
         persist.outgoingClearMessageId(
             /** @type {Client} */{ id: clientId }, packet, () => {
             });
@@ -225,7 +225,7 @@ const session = function (options) {
      * @param {number} qos
      */
     this.addSubscription = function (clientId, topic, qos = 1) {
-        console.log('addSubscription', clientId, topic);
+        // console.log('addSubscription', clientId, topic);
         persist.addSubscriptions(/** @type {Client} */{ id: clientId },
             /**@type []*/[{
                 topic,
@@ -240,7 +240,7 @@ const session = function (options) {
      * @param {string} topic
      */
     this.removeSubscription = function (clientId, topic) {
-        console.log('removeSubscription', clientId, topic);
+        // console.log('removeSubscription', clientId, topic);
         persist.removeSubscriptions(
             /** @type {Client} */{ id: clientId },
             /**@type []*/[topic], () => {

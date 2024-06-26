@@ -56,14 +56,6 @@ const server = function (globalProcessId, options) {
   this.metadata_func = options && options.metadata_func ? options.metadata_func : null;
   this.module_dir = options && options.module_dir ? options.module_dir : __dirname;
 
-
-  if (this.logFunction) {
-    this.logFunction('Bla bla');
-  } else {
-    console.log('err no log fun');
-  }
-
-
   this.mq = mqEmitter({
     concurrency: 250,
   });
@@ -214,7 +206,7 @@ const server = function (globalProcessId, options) {
    * @param {Socket} stream
    */
   const connection = function (stream) {
-    return new clientConn(stream, broker);
+    return new clientConn(stream, broker, { deduplicate: true });
   };
 
   /**
@@ -231,11 +223,13 @@ const server = function (globalProcessId, options) {
       onlyFiles: true
     });
     if (process.env.NODE_ENV === 'development') {
-      console.log('Matching', matches);
+      if (matches.length === 0) {
+        broker.log('No matches, check directory name');
+      }
     }
     for (let modulePath of matches) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Loaded from ', modulePath);
+        broker.log('Loaded from ', modulePath);
       }
       let serverModule = require(modulePath);
       if (typeof serverModule === 'function') {

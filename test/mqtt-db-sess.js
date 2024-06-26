@@ -144,7 +144,7 @@ describe('mqtt-sess', function () {
     const timeout = function (ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
     };
-
+    this.slow(maxSession * 2000);
     await that.persist.startSession(fakeSession1);
     await that.persist.addSubscription(fakeSession1, 'test/#');
     await that.persist.saveSession(fakeSession1, 5);
@@ -162,7 +162,7 @@ describe('mqtt-sess', function () {
     const timeout = function (ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
     };
-
+    this.slow(maxSession * 2000);
     await that.persist.startSession(fakeSession1);
     await that.persist.addSubscription(fakeSession1, 'test/#');
     await that.persist.saveSession(fakeSession1, 5);

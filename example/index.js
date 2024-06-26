@@ -25,7 +25,7 @@ const mqtt = function () {
     const clientCallbacks = [
         {
             topicBuilder: function (authMeta) {
-                return `test/${authMeta.specialProperty}`;
+                return `test/${authMeta.specialProperty}/out/`;
             },
             handler: function (packet, done) {
                 console.log(`Packet rx ${packet.payload.toString()}`)

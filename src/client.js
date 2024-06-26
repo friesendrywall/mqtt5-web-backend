@@ -10,11 +10,18 @@ function noop() {}
 const UNASSIGNED_MSG_ID = -1;
 
 /**
+ * @typedef client_opt_t
+ * @type object
+ * @property {boolean} deduplicate
+ */
+
+/**
  *
  * @param stream
  * @param broker
+ * @param {object | undefined} opt
  */
-const connection = function (stream, broker) {
+const connection = function (stream, broker, opt = undefined) {
   /**
    *
    * @type {Connection|*}
@@ -83,8 +90,8 @@ const connection = function (stream, broker) {
       let pktCpy = Object.assign({}, packet);
 
       pktCpy.messageId = getNewMessageId();
-      if (packet.qos === MQTT.QOS_1) {
-        broker.persist.updateMessageId(metaData.clientId, packet);
+      if (pktCpy.qos === MQTT.QOS_1) {
+        broker.persist.updateMessageId(metaData.clientId, pktCpy);
       }
       return await clientPublishPacket(pktCpy, cb);
     }
@@ -111,21 +118,24 @@ const connection = function (stream, broker) {
   const processOutboundQueue = async function () {
     const packets = await broker.persist.getOfflineMessages(metaData.clientId);
 
-    // Following assumes persistence packets are old -> new
-    // TODO Review
-    const topicExists = [];
-    for (let i = packets.length - 1; i >= 0; i--) {
-      if (topicExists[packets[i].topic]) {
-        // Delete duplicated packet
-        packets.splice(i, 1);
-        broker.persist.deleteMessage(metaData.clientId, packets[i]);
-      } else {
-        // Save newest packet
-        topicExists[packets[i].topic] = true;
+    if (opt && opt.deduplicate) {
+      const topicExists = [];
+      for (let i = packets.length - 1; i >= 0; i--) {
+        if (topicExists[packets[i].topic]) {
+          // Delete duplicated packet
+          packets.splice(i, 1);
+          broker.persist.deleteMessage(metaData.clientId, packets[i]);
+        } else {
+          // Save newest packet
+          topicExists[packets[i].topic] = true;
+        }
       }
     }
 
     for (let i = 0; i < packets.length; i++) {
+      if(!packets[i].messageId){
+        packets[i].messageId = UNASSIGNED_MSG_ID;
+      }
       await clientPublishPacket(packets[i], noop);
     }
   };
@@ -162,7 +172,7 @@ const connection = function (stream, broker) {
         }
         log(
             'debug',
-            `MQTT [${metaData.clientId}:${metaData.uuid.substr(0, 8)}] Closed`
+            `MQTT [${metaData.clientId}:${metaData.uuid.substring(0, 8)}] Closed`
         );
       }
       client.destroy();
@@ -247,7 +257,7 @@ const connection = function (stream, broker) {
         metaData.clean = packet.clean;
         log(
             'info',
-            `MQTT [${metaData.clientId}:${metaData.uuid.substr(0, 8)}] Authorized`
+            `MQTT [${metaData.clientId}:${metaData.uuid.substring(0, 8)}] Authorized`
         );
 
         /** @type {session_data_t | boolean} sessionData */
@@ -582,7 +592,7 @@ const connection = function (stream, broker) {
     });
   });
 
-  client.on('disconnect', async function (packet) {
+  client.on('disconnect', function () {
     log('debug', `MQTT [${metaData.clientId}] Req disconnect`);
     closeClient().then();
   });
