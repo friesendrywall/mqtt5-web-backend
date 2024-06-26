@@ -40,6 +40,21 @@ module.exports = server => {
     }
   });
 
+  server.fetcher('testBroadcast/+/#', {
+
+    async load (params, authMeta) {
+      let topics = [];
+      topics.push({
+        topic: `test/${params.id}/out/`,
+        payload: `${params.payload}`
+      });
+      return {
+        packets: topics,
+        subscription: subscriptionId()
+      };
+    }
+  });
+
   // Publish to individual alert
   server.publication('test/:id/out/', {
     async access (params, authMeta) {

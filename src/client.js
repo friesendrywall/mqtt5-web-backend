@@ -635,3 +635,4 @@ const connection = function (stream, broker, opt = undefined) {
 };
 
 module.exports = connection;
+module.exports.UNASSIGNED_MSG_ID = UNASSIGNED_MSG_ID;

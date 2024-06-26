@@ -5,6 +5,7 @@ const mqEmitter = require('mqemitter');
 const Qlobber = require('qlobber').Qlobber;
 const clientConn = require('./client');
 const MQTT5_ERR = require('./const.js');
+const { UNASSIGNED_MSG_ID } = require('./client');
 
 const { relative } = require('node-core-lib/path');
 const session = require('./session.js');
@@ -24,7 +25,14 @@ function noop () {
  *
  * @param {string} globalProcessId
  * @param {server_opt_t|null} options
- * @returns {server|{fetcher: function(*, *): void, publication: function(*, *): void, connection: function(Socket): connection, subscription: function(*, *): void, autoloadModules: function(string[]=): Promise<void>}}
+ * @returns {server|{
+ *    fetcher: function(*, *): void,
+ *    publication: function(*, *): void,
+ *    connection: function(Socket): connection,
+ *    subscription: function(*, *): void,
+ *    autoloadModules: function(string[]=): Promise<void>,
+ *    sendUpdateBroadcast: function(string, Object, number): Promise<void>
+ *  }}
  */
 const server = function (globalProcessId, options) {
 
@@ -157,7 +165,7 @@ const server = function (globalProcessId, options) {
   };
 
   this.retrieveFetchers = function (topic) {
-    const indexes = broker.fetchMatcher.match(topic);
+    const indexes = broker.fetchMatcher.match(topic, null);
     const ret = [];
     for (let i = 0; i < indexes.length; i++) {
       ret.push(fetchers[indexes[i]]);
@@ -257,7 +265,6 @@ const server = function (globalProcessId, options) {
   };
 
   this.unsubscribe = function (topic, func, done) {
-    console.log(this);
     this.mq.removeListener(topic, func, done);
   };
 
@@ -271,13 +278,37 @@ const server = function (globalProcessId, options) {
     }
   };
 
+  /**
+   *
+   * @param {string} topic
+   * @param {object} params
+   * @param {number} qos
+   * @returns {Promise<void>}
+   */
+  const sendUpdateBroadcast = async function (topic, params, qos) {
+    const index = fetchMatcher.match(topic, null);
+    if (index) {
+      const pkts = await fetchers[index].cb.load(params, null);
+      for (let i = 0; i < pkts.packets.length; i++) {
+        pkts.packets[i].qos = qos;
+        pkts.packets[i].brokerCounter = broker.counter++;
+        pkts.packets[i].brokerId = broker.serverId;
+        pkts.packets[i].messageId = UNASSIGNED_MSG_ID;
+        if (qos) {
+          broker.persist.queueMessage(pkts.packets[i]);
+        }
+        broker.publish(pkts.packets[i], noop);
+      }
+    }
+  }
+
   return {
     connection,
     subscription,
     publication,
     fetcher,
-    autoloadModules// ,
-    // getClientTopics: this.getClientTopics
+    autoloadModules,
+    sendUpdateBroadcast
   };
 
 };

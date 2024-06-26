@@ -15,6 +15,7 @@ let that;
 const maxSession = 30;
 let testAdminPassword;
 let testClientPassword;
+let mqttBroker;
 
 const mqtt = function () {
 
@@ -44,7 +45,7 @@ const mqtt = function () {
   const netServer = new net.Server();
 
   mqttServer.autoloadModules().then();
-
+  mqttBroker = mqttServer;
   netServer.on('connection', mqttServer.connection);
   netServer.listen(1883);
 };
@@ -216,6 +217,31 @@ describe('mqtt-test', function () {
         done();
       }
     });
+  });
+
+  it('should get broker broadcast', function (done) {
+    this.timeout(1000);
+    let rx = 0;
+    doStdSubConn(true, null, null, 'mqtt-js-test');
+
+    that.conn.on('publish', function (packet) {
+      rx++;
+      console.log(`\trx #${rx} ${packet.topic}`);
+      if (rx === 1) {
+        console.log(`\tSend broadcast`);
+        mqttBroker.sendUpdateBroadcast('testBroadcast/1/#',
+            {
+              id: 1024,
+              payload: 'HELLO_WORLD'
+            }, 1);
+      }
+      if (packet.topic === 'test/1024/out/') {
+        assert.equal(packet.topic, 'test/1024/out/', 'Should be correct payload');
+        assert.equal(packet.payload, 'HELLO_WORLD', 'Should be HELLO_WORLD');
+        done();
+      }
+    });
+
   });
 
   it('should get offline publishes', function (done) {
