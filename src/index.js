@@ -31,7 +31,7 @@ function noop () {
  *    connection: function(Socket): connection,
  *    subscription: function(*, *): void,
  *    autoloadModules: function(string[]=): Promise<void>,
- *    sendUpdateBroadcast: function(string, Object, number): Promise<void>
+ *    sendUpdateBroadcast: function(topic: string, params: Object, qos: number): Promise<void>
  *  }}
  */
 const server = function (globalProcessId, options) {
@@ -232,12 +232,12 @@ const server = function (globalProcessId, options) {
     });
     if (process.env.NODE_ENV === 'development') {
       if (matches.length === 0) {
-        broker.log('No matches, check directory name');
+        broker.log('debug', 'No matches, check directory name');
       }
     }
     for (let modulePath of matches) {
       if (process.env.NODE_ENV === 'development') {
-        broker.log('Loaded from ', modulePath);
+        broker.log('debug', 'Loaded from ', modulePath);
       }
       let serverModule = require(modulePath);
       if (typeof serverModule === 'function') {
