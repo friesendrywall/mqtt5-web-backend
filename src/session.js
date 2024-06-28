@@ -81,7 +81,7 @@ const session = function (options) {
             persist.subscriptionsByClient(
                 /** @type {Client} */{ id: clientId },
                 (err, subs, client) => {
-                    ret.subs = subs;
+                    ret.subs = subs ? subs : [];
                 });
             resolve(ret);
         });
