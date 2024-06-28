@@ -77,6 +77,7 @@ const session = function (options) {
             }
             clients[clientId].last = Date.now();
             let ret = Object.assign({}, clients[clientId]);
+            ret.subs = [];
             persist.subscriptionsByClient(
                 /** @type {Client} */{ id: clientId },
                 (err, subs, client) => {

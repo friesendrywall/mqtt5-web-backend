@@ -65,6 +65,9 @@ const connection = function (stream, broker, opt = undefined) {
   };
 
   const sessionRefresh = async function () {
+    if (metaData.state === 'closed') {
+      return;
+    }
     if (streamTimer) {
       clearTimeout(streamTimer);
       streamTimer = setTimeout(streamTimeout, streamTimeoutDelay);
