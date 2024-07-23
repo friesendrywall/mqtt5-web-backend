@@ -24,6 +24,7 @@
  * @property {function} auth_func
  * @property {function} metadata_func
  * @property {string|null} module_dir
+ * @property {Object} aedes_handle
  *
  */
 

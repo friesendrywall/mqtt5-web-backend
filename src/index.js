@@ -63,6 +63,7 @@ const server = function (globalProcessId, options) {
   this.auth_func = options && options.auth_func ? options.auth_func : null;
   this.metadata_func = options && options.metadata_func ? options.metadata_func : null;
   this.module_dir = options && options.module_dir ? options.module_dir : __dirname;
+  this.aedes_handle = options && options.aedes_handle ? options.aedes_handle : null;
 
   this.mq = mqEmitter({
     concurrency: 250,

@@ -105,17 +105,49 @@ const connection = function (stream, broker, opt = undefined) {
     });
   };
 
+  const bridgePublishPacket = async function (packet, cb) {
+    const pktCpy = Object.assign({}, packet);
+    if (pktCpy.qos > 0) {
+      pktCpy.messageId = UNASSIGNED_MSG_ID;
+    }
+    cb();
+    clientPublishPacket(pktCpy, noop).then();
+  };
   const addSubscription = function (topic) {
     if (clientSubscriptions[topic]) {
       return;
     }
+    const handler = broker.findSubscription(topic).handler;
+    if (handler == null) {
+      return;
+    }
     clientSubscriptions[topic] = clientPublishPacket;
-    broker.mq.on(topic, clientPublishPacket);
+
+    if (handler && handler.cb && handler.cb.bridge) {
+      broker.aedes_handle.subscribe(topic, bridgePublishPacket, noop);
+      // Duplicate listener for internal repeat channels
+      broker.mq.on(topic, clientPublishPacket);
+      /* We have to manually find and send persisted items */
+      const persistence = broker.aedes_handle.persistence;
+      const stream = persistence.createRetainedStream(topic);
+      stream.on('data', (packet) => {
+        bridgePublishPacket(packet, noop).then();
+      });
+    } else {
+      broker.mq.on(topic, clientPublishPacket);
+    }
   };
 
   const removeSubscription = function (topic) {
     delete clientSubscriptions[topic];
-    broker.mq.removeListener(topic, clientPublishPacket);
+    const handler = broker.findSubscription(topic).handler;
+    if (handler && handler.cb && handler.cb.bridge) {
+      broker.aedes_handle.unsubscribe(topic, bridgePublishPacket, noop);
+      // Duplicate listener for internal repeat channels
+      broker.mq.removeListener(topic, clientPublishPacket);
+    } else {
+      broker.mq.removeListener(topic, clientPublishPacket);
+    }
   };
 
   const processOutboundQueue = async function () {
