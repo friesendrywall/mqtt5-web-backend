@@ -55,6 +55,7 @@ const connection = function (stream, broker, opt = undefined) {
 
   let currentMessageId = 0;
   let clientSubscriptions = [];
+  let callbackTopics = [];
   let streamTimer = null;
 
   const getNewMessageId = function () {
@@ -199,9 +200,10 @@ const connection = function (stream, broker, opt = undefined) {
         if (broker.clientCallbacks) {
           broker.clientCallbacks.forEach((callback) => {
             const topic = callback.topicBuilder(metaData.authMeta);
+            delete callbackTopics[topic];
             broker.mq.removeListener(
                 topic,
-                callback.handler,
+                clientCallbackHandler,
                 noop);
           });
         }
@@ -214,6 +216,15 @@ const connection = function (stream, broker, opt = undefined) {
       metaData.authMeta = false;
     }
   };
+
+  const clientCallbackHandler = function (packet, cb) {
+    if (callbackTopics[packet.topic] && callbackTopics[packet.topic].handler) {
+      callbackTopics[packet.topic].handler(packet, metaData.authMeta, cb);
+    } else {
+      log('debug', `MQTT [${metaData.clientId}] Unhandled clientCallback ${packet.topic}`);
+      cb();
+    }
+  }
 
   client.on('connect', async function (packet) {
     // Prevent duplicate connections, FIFO
@@ -329,9 +340,12 @@ const connection = function (stream, broker, opt = undefined) {
         if (broker.clientCallbacks) {
           broker.clientCallbacks.forEach((callback) => {
             const topic = callback.topicBuilder(metaData.authMeta);
+            callbackTopics[topic] = {
+              handler: callback.handler
+            };
             broker.mq.on(
                 topic,
-                callback.handler,
+                clientCallbackHandler,
                 noop);
           });
         }
