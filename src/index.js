@@ -235,12 +235,12 @@ const server = function (globalProcessId, options) {
     });
     if (process.env.NODE_ENV === 'development') {
       if (matches.length === 0) {
-        broker.log('debug', 'No matches, check directory name');
+        console.log('debug', 'No matches, check directory name');
       }
     }
     for (let modulePath of matches) {
       if (process.env.NODE_ENV === 'development') {
-        broker.log('debug', 'Loaded from ', modulePath);
+        console.log('debug', 'Loaded from', modulePath);
       }
       let serverModule = require(modulePath);
       if (typeof serverModule === 'function') {
