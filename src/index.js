@@ -95,7 +95,9 @@ const server = function (globalProcessId, options) {
     subscriptions.push({
       topic,
       cb,
-      pattern: new UrlPattern(topic)
+      pattern: new UrlPattern(topic, {
+        segmentValueCharset: 'a-zA-Z0-9-_~ %:'
+      })
     });
   };
 
