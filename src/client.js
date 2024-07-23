@@ -110,6 +110,7 @@ const connection = function (stream, broker, opt = undefined) {
     const pktCpy = Object.assign({}, packet);
     if (pktCpy.qos > 0) {
       pktCpy.messageId = UNASSIGNED_MSG_ID;
+      broker.persist.queueClientMessage(metaData.clientId, pktCpy);
     }
     cb();
     clientPublishPacket(pktCpy, noop).then();
