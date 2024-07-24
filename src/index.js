@@ -32,6 +32,7 @@ function noop () {
  *    subscription: function(*, *): void,
  *    autoloadModules: function(string[]=): Promise<void>,
  *    sendUpdateBroadcast: function(topic: string, params: Object, qos: number): Promise<void>
+ *    publishExternal: function(*, *): Promise<void>,
  *  }}
  */
 const server = function (globalProcessId, options) {
@@ -119,7 +120,9 @@ const server = function (globalProcessId, options) {
     publications.push({
       topic,
       cb,
-      pattern: new UrlPattern(topic)
+      pattern: new UrlPattern(topic, {
+        segmentValueCharset: 'a-zA-Z0-9-_~ %:'
+      })
     });
   };
 
@@ -259,6 +262,16 @@ const server = function (globalProcessId, options) {
     }
   };
 
+  const publishExternal = async function (packet, done) {
+    packet.messageId = UNASSIGNED_MSG_ID;
+    if (packet.qos === 1) {
+      packet.brokerCounter = broker.counter++;
+      packet.brokerId = broker.serverId;
+      broker.persist.queueMessage(packet);
+    }
+    broker.publish(packet, done);
+  };
+
   this.publish = function (packet, done) {
     this.mq.emit(packet, done);
   };
@@ -311,7 +324,8 @@ const server = function (globalProcessId, options) {
     publication,
     fetcher,
     autoloadModules,
-    sendUpdateBroadcast
+    sendUpdateBroadcast,
+    publishExternal
   };
 
 };

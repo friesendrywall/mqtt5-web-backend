@@ -441,6 +441,11 @@ const connection = function (stream, broker, opt = undefined) {
               broker.publish(pubs.all[i]);
             }
           }
+          if (pubs.bridge) {
+            for (let i = 0; i < pubs.bridge.length; i++) {
+              broker.aedes_handle.publish(pubs.bridge[i]);
+            }
+          }
           if (packet.qos > 0) {
             if (pubs.puback) {
               pubs.puback.messageId = messageId;
@@ -597,6 +602,7 @@ const connection = function (stream, broker, opt = undefined) {
         } else {
           granted[i] = MQTT.NOT_AUTHORIZED;
           success = false;
+          log('debug', `Topic ${sub.topic} not found`);
         }
       } else {
         granted[i] = MQTT.TOPIC_INVALID;
@@ -616,7 +622,7 @@ const connection = function (stream, broker, opt = undefined) {
         for (let f = 0; f < fetchers.length; f++) {
           const fetcher = fetchers[f];
           try {
-            const result = await fetcher.cb.load(sub.params, metaData.authMeta);
+            const result = await fetcher.cb.load(sub.params, metaData.authMeta, sub.topic);
             const pkts = result.packets;
             for (let p = 0; p < pkts.length; p++) {
               const pkt = pkts[p];
