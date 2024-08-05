@@ -3,6 +3,7 @@ const events = require('events');
 const { v4: uuidv4 } = require('uuid');
 const MQTT = require('./const');
 const globalEvents = new events.EventEmitter();
+const Qlobber = require('qlobber').Qlobber;
 require('./typedefs.js');
 
 function noop() {}
@@ -41,6 +42,12 @@ const connection = function (stream, broker, opt = undefined) {
   const streamTimeoutDelay = 1000 * 60 * 5;
   const clientEvents = new events.EventEmitter();
   const log = broker.log;
+
+  const callbackMatcher = new Qlobber({
+    wildcard_one: '+',
+    wildcard_some: '#',
+    separator: '/'
+  });
 
   let metaData = {
     authMeta: false,
@@ -218,9 +225,15 @@ const connection = function (stream, broker, opt = undefined) {
     }
   };
 
-  const clientCallbackHandler = function (packet, cb) {
-    if (callbackTopics[packet.topic] && callbackTopics[packet.topic].handler) {
-      callbackTopics[packet.topic].handler(packet, metaData.authMeta, cb);
+  const clientCallbackHandler = async function (packet, cb) {
+    const topics = callbackMatcher.match(packet.topic, null);
+    if (topics && topics.length > 0) {
+      for (let i = 0; i < topics.length; i++) {
+        const topic = topics[i];
+        if (callbackTopics[topic] && callbackTopics[topic].handler) {
+          await callbackTopics[topic].handler(packet, metaData.authMeta, cb);
+        }
+      }
     } else {
       log('debug', `MQTT [${metaData.clientId}] Unhandled clientCallback ${packet.topic}`);
       cb();
@@ -344,6 +357,7 @@ const connection = function (stream, broker, opt = undefined) {
             callbackTopics[topic] = {
               handler: callback.handler
             };
+            callbackMatcher.add(topic, topic);
             broker.mq.on(
                 topic,
                 clientCallbackHandler,
