@@ -30,6 +30,7 @@ function noop () {
  *    publication: function(*, *): void,
  *    connection: function(Socket): connection,
  *    subscription: function(*, *): void,
+ *    scheduler: function(*): void,
  *    autoloadModules: function(string[]=): Promise<void>,
  *    sendUpdateBroadcast: function(topic: string, params: Object, qos: number): Promise<void>
  *    publishExternal: function(*, *): Promise<void>,
@@ -318,11 +319,35 @@ const server = function (globalProcessId, options) {
     }
   }
 
+  const scheduler = function (params) {
+    /* Empty state storage object */
+    let state = {};
+    setInterval(async function (params) {
+      try {
+        const packets = await params.run(state);
+        if (packets && packets.length > 0) {
+          for (let i = 0; i < packets.length; i++) {
+            await publishExternal(packets[i]);
+          }
+        }
+      } catch (error) {
+        broker.log('debug', `Scheduler err id ${params.id} ${error.toString()}`);
+      }
+
+    }, params.time, params);
+    if (params.init) {
+      params.run(state).then().catch((error) => {
+        broker.log('debug', `Scheduler err id ${params.id} ${error.toString()}`);
+      });
+    }
+  };
+
   return {
     connection,
     subscription,
     publication,
     fetcher,
+    scheduler,
     autoloadModules,
     sendUpdateBroadcast,
     publishExternal
