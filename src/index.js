@@ -66,7 +66,7 @@ const server = function (globalProcessId, options) {
   this.metadata_func = options && options.metadata_func ? options.metadata_func : null;
   this.module_dir = options && options.module_dir ? options.module_dir : __dirname;
   this.aedes_handle = options && options.aedes_handle ? options.aedes_handle : null;
-  this.client_ping = options && options.aedes_handle ? options.aedes_handle : false;
+  this.client_ping = options && options.client_ping ? options.client_ping : 0;
 
   this.mq = mqEmitter({
     concurrency: 250,
