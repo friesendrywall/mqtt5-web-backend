@@ -66,6 +66,7 @@ const server = function (globalProcessId, options) {
   this.metadata_func = options && options.metadata_func ? options.metadata_func : null;
   this.module_dir = options && options.module_dir ? options.module_dir : __dirname;
   this.aedes_handle = options && options.aedes_handle ? options.aedes_handle : null;
+  this.client_ping = options && options.aedes_handle ? options.aedes_handle : false;
 
   this.mq = mqEmitter({
     concurrency: 250,
@@ -221,7 +222,10 @@ const server = function (globalProcessId, options) {
    * @param {Socket} stream
    */
   const connection = function (stream) {
-    return new clientConn(stream, broker, { deduplicate: true });
+    return new clientConn(stream, broker, {
+      deduplicate: true,
+      client_ping: broker.client_ping
+    });
   };
 
   /**

@@ -14,13 +14,14 @@ const UNASSIGNED_MSG_ID = -1;
  * @typedef client_opt_t
  * @type object
  * @property {boolean} deduplicate
+ * @property {Number|undefined} client_ping MS ping timer
  */
 
 /**
  *
  * @param stream
  * @param broker
- * @param {object | undefined} opt
+ * @param {client_opt_t | object | undefined} opt
  */
 const connection = function (stream, broker, opt = undefined) {
   /**
@@ -64,6 +65,7 @@ const connection = function (stream, broker, opt = undefined) {
   let clientSubscriptions = [];
   let callbackTopics = [];
   let streamTimer = null;
+  let clientPingTimer = null;
 
   const getNewMessageId = function () {
     if (++currentMessageId > 0xffff) {
@@ -93,6 +95,15 @@ const connection = function (stream, broker, opt = undefined) {
     });
   };
 
+  const pingClient = function () {
+    if (opt && opt.client_ping && opt.client_ping > 0) {
+      client.pingreq(null, function () {
+
+      });
+      clientPingTimer = setTimeout(pingClient, opt.client_ping);
+    }
+  };
+
   const clientPublishPacket = async function (packet, cb) {
     if (metaData.state === 'closed') {
       return;
@@ -105,6 +116,10 @@ const connection = function (stream, broker, opt = undefined) {
         broker.persist.updateMessageId(metaData.clientId, pktCpy);
       }
       return await clientPublishPacket(pktCpy, cb);
+    }
+    if (opt && opt.client_ping && opt.client_ping > 0) {
+      clearTimeout(clientPingTimer);
+      clientPingTimer = setTimeout(pingClient, opt.client_ping);
     }
     /* NOTE: If we did retransmissions over tcp, we would do this here
              However MQTT5 allows us to only retransmit on reconnects.  */
@@ -188,6 +203,9 @@ const connection = function (stream, broker, opt = undefined) {
     if (metaData.state !== 'closed') {
       if (streamTimer) {
         clearTimeout(streamTimer);
+      }
+      if (clientPingTimer) {
+        clearTimeout(clientPingTimer);
       }
       metaData.state = 'closed';
       clientEvents.removeAllListeners('auth');
@@ -377,6 +395,9 @@ const connection = function (stream, broker, opt = undefined) {
           }
           await processOutboundQueue();
         }
+        if (opt && opt.client_ping && opt.client_ping > 0) {
+          clientPingTimer = setTimeout(pingClient, opt.client_ping)
+        }
       } catch (error) {
         clientEvents.emit('auth', false);
         log('error', 'client.on(connect) error', error);
@@ -521,6 +542,10 @@ const connection = function (stream, broker, opt = undefined) {
   client.on('pingreq', function () {
     sessionRefresh().then();
     client.pingresp();
+  });
+
+  client.on('pingresp', function () {
+    sessionRefresh().then();
   });
 
   client.on('puback', async function (packet) {
