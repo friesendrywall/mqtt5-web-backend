@@ -188,6 +188,21 @@ describe('mqtt-sess', function () {
     assert(result === false, "Wasn't offline");
   });
 
+  it('should store retained', async () => {
+
+    await that.persist.startSession(fakeSession1);
+    let retained = await that.persist.getRetainedMessages('test/#');
+    assert(retained.length === 0, 'Messages should not exist');
+    await that.persist.storeRetained({
+      topic: 'test/111/',
+      payload: 'Retained',
+      retain: true
+    });
+    retained = await that.persist.getRetainedMessages('test/#');
+    assert(retained.length === 1, '1 Message should exist');
+    assert(retained[0].payload === 'Retained', 'Message should exist');
+  });
+
   // Database cleanup
 
 });

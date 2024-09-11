@@ -248,6 +248,33 @@ const session = function (options) {
             });
     }
 
+    /**
+     * Store retained packet
+     * @param {AedesPacket} packet
+     */
+    this.storeRetained = function (packet) {
+        persist.storeRetained(packet, () => {
+        });
+    }
+
+    /**
+     * Get all retained message for topic
+     * @param {string} topic
+     * @returns {Promise<AedesPacket[]>}
+     */
+    this.getRetainedMessages = async function (topic) {
+        return new Promise(function (resolve, reject) {
+            const packets = [];
+            const retainedMsgStream = persist.createRetainedStreamCombi([topic]);
+            retainedMsgStream.on('data', function (packet) {
+                packets.push(packet);
+            });
+            retainedMsgStream.on('end', function (data) {
+                resolve(packets);
+            });
+        });
+    }
+
 }
 
 module.exports = session;

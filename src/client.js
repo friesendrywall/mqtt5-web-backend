@@ -656,15 +656,16 @@ const connection = function (stream, broker, opt = undefined) {
         const sub = packet.subscriptions[i];
         broker.persist.addSubscription(metaData.clientId, sub.topic);
         addSubscription(sub.topic);
-
+        /* Retained */
+        const retainedPackets = await broker.persist.getRetainedMessages(sub.topic);
+        /* Fetchers */
         const fetchers = broker.retrieveFetchers(sub.topic);
         for (let f = 0; f < fetchers.length; f++) {
           const fetcher = fetchers[f];
           try {
             const result = await fetcher.cb.load(sub.params, metaData.authMeta, sub.topic);
-            const pkts = result.packets;
-            for (let p = 0; p < pkts.length; p++) {
-              const pkt = pkts[p];
+            const pkts = retainedPackets.concat(result.packets);
+            for (const pkt of pkts) {
               pkt.messageId = UNASSIGNED_MSG_ID;
               pkt.qos = sub.qos;
               pkt.brokerCounter = broker.counter++;

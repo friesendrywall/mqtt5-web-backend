@@ -269,6 +269,9 @@ const server = function (globalProcessId, options) {
 
   const publishExternal = async function (packet, done) {
     packet.messageId = UNASSIGNED_MSG_ID;
+    if (packet.retain) {
+      broker.persist.storeRetained(packet);
+    }
     if (packet.qos === 1) {
       packet.brokerCounter = broker.counter++;
       packet.brokerId = broker.serverId;
@@ -278,6 +281,9 @@ const server = function (globalProcessId, options) {
   };
 
   this.publish = function (packet, done) {
+    if (packet.retain) {
+      broker.persist.storeRetained(packet);
+    }
     this.mq.emit(packet, done);
   };
 
