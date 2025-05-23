@@ -117,10 +117,6 @@ const connection = function (stream, broker, opt = undefined) {
       }
       return await clientPublishPacket(pktCpy, cb);
     }
-    if (opt && opt.client_ping && opt.client_ping > 0) {
-      clearTimeout(clientPingTimer);
-      clientPingTimer = setTimeout(pingClient, opt.client_ping);
-    }
     /* NOTE: If we did retransmissions over tcp, we would do this here
              However MQTT5 allows us to only retransmit on reconnects.  */
     client.publish(packet, function () {
