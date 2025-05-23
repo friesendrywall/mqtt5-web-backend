@@ -697,13 +697,18 @@ const connection = function (stream, broker, opt = undefined) {
     closeClient().then();
   });
   client.on('error', function (error) {
-    const ignored = ['EPIPE', 'ECONNRESET', 'ECONNABORTED'];
-    if (!ignored.find((element) => element === error.code)) {
-      log('info', `MQTT [${metaData.clientId}] Error`, error);
+    const ignored = ['EPIPE', 'ECONNRESET', 'ECONNABORTED', 'ENOTCONN'];
+    if (error.message === 'write after end') {
+      log(
+          'info',
+          `MQTT [${metaData.clientId}:${metaData.uuid.substring(0, 8)}] pipe was closed`
+      );
+    } else if (!ignored.find((element) => element === error.code)) {
+      log('info', `MQTT [${metaData.clientId}:${metaData.uuid.substring(0, 8)}] Error`, error);
     } else {
       log(
           'info',
-          `MQTT [${metaData.clientId}] pipe failed ${error.code}`
+          `MQTT [${metaData.clientId}:${metaData.uuid.substring(0, 8)}] pipe failed ${error.code}`
       );
     }
     if (metaData.state !== 'closed') {
@@ -712,7 +717,7 @@ const connection = function (stream, broker, opt = undefined) {
   });
 
   const streamTimeout = function () {
-    log('info', `MQTT [${metaData.clientId}] Timed out`);
+    log('info', `MQTT [${metaData.clientId}:${metaData.uuid.substring(0, 8)}] Timed out`);
     closeClient().then();
   };
 

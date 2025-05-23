@@ -16,6 +16,7 @@ const maxSession = 30;
 let testAdminPassword;
 let testClientPassword;
 let mqttBroker;
+const testPort = 2883;
 
 const mqtt = function () {
 
@@ -47,7 +48,7 @@ const mqtt = function () {
   mqttServer.autoloadModules().then();
   mqttBroker = mqttServer;
   netServer.on('connection', mqttServer.connection);
-  netServer.listen(1883);
+  netServer.listen(testPort);
 };
 
 const doStdConn = function (clean, ready, done) {
@@ -130,7 +131,7 @@ describe('mqtt-test', function () {
 
   beforeEach(async function () {
     that = this;
-    const stream = net.createConnection(1883, '127.0.0.1');
+    const stream = net.createConnection(testPort, '127.0.0.1');
     that.conn = mqttCon(stream, {
       protocolVersion: 5
     });
@@ -258,7 +259,7 @@ describe('mqtt-test', function () {
     });
 
     const startSecond = function () {
-      const stream = net.createConnection(1883, '127.0.0.1');
+      const stream = net.createConnection(testPort, '127.0.0.1');
       that.conn = mqttCon(stream, {
         protocolVersion: 5
       });
@@ -285,7 +286,7 @@ describe('mqtt-test', function () {
 
     const startTest = function () {
       let complete = false;
-      const stream = net.createConnection(1883, '127.0.0.1');
+      const stream = net.createConnection(testPort, '127.0.0.1');
       that.conn = mqttCon(stream, {
         protocolVersion: 5
       });
@@ -322,7 +323,7 @@ describe('mqtt-test', function () {
     });
 
     const startSecond = function () {
-      const stream = net.createConnection(1883, '127.0.0.1');
+      const stream = net.createConnection(testPort, '127.0.0.1');
       that.conn = mqttCon(stream, {
         protocolVersion: 5
       });
@@ -355,7 +356,7 @@ describe('mqtt-test', function () {
 
     const startTest = function () {
       let complete = false;
-      const stream = net.createConnection(1883, '127.0.0.1');
+      const stream = net.createConnection(testPort, '127.0.0.1');
       that.conn = mqttCon(stream, {
         protocolVersion: 5
       });
@@ -413,7 +414,7 @@ describe('mqtt-test', function () {
     });
 
     const finishTest = function () {
-      const stream = net.createConnection(1883, '127.0.0.1');
+      const stream = net.createConnection(testPort, '127.0.0.1');
       that.conn = mqttCon(stream, {
         protocolVersion: 5
       });
@@ -445,7 +446,7 @@ describe('mqtt-test', function () {
     });
 
     const finishTest = function () {
-      const stream = net.createConnection(1883, '127.0.0.1');
+      const stream = net.createConnection(testPort, '127.0.0.1');
       that.conn = mqttCon(stream, {
         protocolVersion: 5
       });
@@ -552,7 +553,7 @@ describe('mqtt-test', function () {
     });
 
     const finishTest = function (packetCount) {
-      const stream = net.createConnection(1883, '127.0.0.1');
+      const stream = net.createConnection(testPort, '127.0.0.1');
       const diffConn = mqttCon(stream, {
         protocolVersion: 5
       });
@@ -652,7 +653,7 @@ describe('mqtt-test', function () {
     });
 
     const startSender = function () {
-      const stream = net.createConnection(1883, '127.0.0.1');
+      const stream = net.createConnection(testPort, '127.0.0.1');
       that.conn = mqttCon(stream, {
         protocolVersion: 5
       });
@@ -665,7 +666,7 @@ describe('mqtt-test', function () {
     };
 
     const startAlternate = function () {
-      const stream = net.createConnection(1883, '127.0.0.1');
+      const stream = net.createConnection(testPort, '127.0.0.1');
       const altConn = mqttCon(stream, {
         protocolVersion: 5
       });
