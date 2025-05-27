@@ -67,9 +67,10 @@ const server = function (globalProcessId, options) {
   this.module_dir = options && options.module_dir ? options.module_dir : __dirname;
   this.aedes_handle = options && options.aedes_handle ? options.aedes_handle : null;
   this.client_ping = options && options.client_ping ? options.client_ping : 0;
+  this.concurrency = options && options.concurrency ? options.concurrency : 250;
 
   this.mq = mqEmitter({
-    concurrency: 250,
+    concurrency: this.concurrency,
   });
 
   this.persist = new session(
@@ -284,15 +285,15 @@ const server = function (globalProcessId, options) {
     if (packet.retain) {
       broker.persist.storeRetained(packet);
     }
-    this.mq.emit(packet, done);
+    broker.mq.emit(packet, done);
   };
 
   this.subscribe = function (topic, func, done) {
-    this.mq.on(topic, func, done);
+    broker.mq.on(topic, func, done);
   };
 
   this.unsubscribe = function (topic, func, done) {
-    this.mq.removeListener(topic, func, done);
+    broker.mq.removeListener(topic, func, done);
   };
 
   /**
@@ -352,6 +353,10 @@ const server = function (globalProcessId, options) {
     }
   };
 
+  const connCurrent = function(){
+    return broker.mq.current;
+  }
+
   return {
     connection,
     subscription,
@@ -360,7 +365,8 @@ const server = function (globalProcessId, options) {
     scheduler,
     autoloadModules,
     sendUpdateBroadcast,
-    publishExternal
+    publishExternal,
+    connCurrent
   };
 
 };

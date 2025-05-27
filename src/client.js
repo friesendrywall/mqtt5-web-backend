@@ -106,6 +106,7 @@ const connection = function (stream, broker, opt = undefined) {
 
   const clientPublishPacket = async function (packet, cb) {
     if (metaData.state === 'closed') {
+      cb();
       return;
     }
     if (packet.messageId === UNASSIGNED_MSG_ID) {
