@@ -12,12 +12,6 @@ const session = require('./session.js');
 
 require('./typedefs.js');
 
-const fetchMatcher = new Qlobber({
-  wildcard_one: '+',
-  wildcard_some: '#',
-  separator: '/'
-});
-
 function noop () {
 }
 
@@ -34,6 +28,7 @@ function noop () {
  *    autoloadModules: function(string[]=): Promise<void>,
  *    sendUpdateBroadcast: function(topic: string, params: Object, qos: number): Promise<void>
  *    publishExternal: function(*, *): Promise<void>,
+ *    conCurrent: function(): Number
  *  }}
  */
 const server = function (globalProcessId, options) {
@@ -56,7 +51,7 @@ const server = function (globalProcessId, options) {
    */
   const fetchers = [];
   const subscriptions = [];
-  this.clientList = [];
+  this.clientList = {};
   this.userChange = null;
   this.farmChange = null;
   this.serverId = uuidv4(null, null, null);
@@ -79,6 +74,11 @@ const server = function (globalProcessId, options) {
         ttl: 3600
       }
   );
+  const fetchMatcher = new Qlobber({
+    wildcard_one: '+',
+    wildcard_some: '#',
+    separator: '/'
+  });
   this.fetchMatcher = fetchMatcher;
   this.counter = 1;
 
@@ -314,18 +314,20 @@ const server = function (globalProcessId, options) {
    * @returns {Promise<void>}
    */
   const sendUpdateBroadcast = async function (topic, params, qos) {
-    const index = fetchMatcher.match(topic, null);
-    if (index) {
-      const pkts = await fetchers[index].cb.load(params, null);
-      for (let i = 0; i < pkts.packets.length; i++) {
-        pkts.packets[i].qos = qos;
-        pkts.packets[i].brokerCounter = broker.counter++;
-        pkts.packets[i].brokerId = broker.serverId;
-        pkts.packets[i].messageId = UNASSIGNED_MSG_ID;
-        if (qos) {
-          broker.persist.queueMessage(pkts.packets[i]);
+    const indexes = fetchMatcher.match(topic, null);
+    if (indexes && indexes.length > 0) {
+      for (let j = 0; j < indexes.length; j++) {
+        const pkts = await fetchers[indexes[j]].cb.load(params, null);
+        for (let i = 0; i < pkts.packets.length; i++) {
+          pkts.packets[i].qos = qos;
+          pkts.packets[i].brokerCounter = broker.counter++;
+          pkts.packets[i].brokerId = broker.serverId;
+          pkts.packets[i].messageId = UNASSIGNED_MSG_ID;
+          if (qos) {
+            broker.persist.queueMessage(pkts.packets[i]);
+          }
+          broker.publish(pkts.packets[i], noop);
         }
-        broker.publish(pkts.packets[i], noop);
       }
     }
   }
@@ -353,7 +355,7 @@ const server = function (globalProcessId, options) {
     }
   };
 
-  const connCurrent = function(){
+  const conCurrent = function(){
     return broker.mq.current;
   }
 
@@ -366,7 +368,7 @@ const server = function (globalProcessId, options) {
     autoloadModules,
     sendUpdateBroadcast,
     publishExternal,
-    connCurrent
+    conCurrent
   };
 
 };

@@ -179,8 +179,8 @@ const connection = function (stream, broker, opt = undefined) {
       for (let i = packets.length - 1; i >= 0; i--) {
         if (topicExists[packets[i].topic]) {
           // Delete duplicated packet
-          packets.splice(i, 1);
-          broker.persist.deleteMessage(metaData.clientId, packets[i]);
+          const removed = packets.splice(i, 1)[0];
+          broker.persist.deleteMessage(metaData.clientId, removed);
         } else {
           // Save newest packet
           topicExists[packets[i].topic] = true;

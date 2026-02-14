@@ -73,7 +73,7 @@ const session = function (options) {
     this.findSession = async function (clientId) {
         return new Promise(function (resolve, reject) {
             if (!clients[clientId]) {
-                resolve(false);
+                return resolve(false);
             }
             clients[clientId].last = Date.now();
             let ret = Object.assign({}, clients[clientId]);
@@ -81,9 +81,12 @@ const session = function (options) {
             persist.subscriptionsByClient(
                 /** @type {Client} */{ id: clientId },
                 (err, subs, client) => {
+                    if (err) {
+                        return resolve(ret);
+                    }
                     ret.subs = subs ? subs : [];
+                    resolve(ret);
                 });
-            resolve(ret);
         });
     }
 
